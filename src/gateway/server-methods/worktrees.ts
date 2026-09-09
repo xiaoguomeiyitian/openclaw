@@ -30,7 +30,7 @@ function invalidParams(respond: Parameters<GatewayRequestHandlers[string]>[0]["r
   respond(false, undefined, errorShape(ErrorCodes.INVALID_REQUEST, "invalid worktrees parameters"));
 }
 
-async function resolveAuthorizedRepoRoot(
+export async function resolveAuthorizedRepoRoot(
   method: string,
   repoRoot: string,
   opts: Parameters<GatewayRequestHandlers[string]>[0],

@@ -3,6 +3,7 @@ import * as desktop from "./desktop.js";
 import * as environments from "./environments.js";
 import * as fsSchemas from "./fs.js";
 import * as projects from "./projects.js";
+import * as scm from "./scm.js";
 import * as systemInfo from "./system-info.js";
 import * as worktrees from "./worktrees.js";
 
@@ -83,6 +84,15 @@ export const AgentControlProtocolSchemas = {
   WorktreeRepositoryStatus: worktrees.WorktreeRepositoryStatusSchema,
   WorktreesBranchesParams: worktrees.WorktreesBranchesParamsSchema,
   WorktreesBranchesResult: worktrees.WorktreesBranchesResultSchema,
+  ScmStatusParams: scm.ScmStatusParamsSchema,
+  ScmStatusFile: scm.ScmStatusFileSchema,
+  ScmStatusResult: scm.ScmStatusResultSchema,
+  ScmDiffParams: scm.ScmDiffParamsSchema,
+  ScmDiffResult: scm.ScmDiffResultSchema,
+  ScmStageParams: scm.ScmStageParamsSchema,
+  ScmUnstageParams: scm.ScmUnstageParamsSchema,
+  ScmCommitParams: scm.ScmCommitParamsSchema,
+  ScmCommitResult: scm.ScmCommitResultSchema,
   FsDirEntry: fsSchemas.FsDirEntrySchema,
   FsListDirParams: fsSchemas.FsListDirParamsSchema,
   FsListDirResult: fsSchemas.FsListDirResultSchema,

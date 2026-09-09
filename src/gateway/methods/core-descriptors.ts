@@ -181,6 +181,14 @@ const CORE_GATEWAY_METHOD_SPECS = [
   ["worktrees.remove", "worktrees", "operator.admin", "2026.7", CONTROL_PLANE_WRITE],
   ["worktrees.restore", "worktrees", "operator.admin", "2026.7", CONTROL_PLANE_WRITE],
   ["worktrees.gc", "worktrees", "operator.admin", "2026.7", CONTROL_PLANE_WRITE],
+  // Source-control panel probes and mutations accept arbitrary host paths; the
+  // read-shaped status/diff sit at the same bar as worktrees.branches since the
+  // handler containment-checks the repo root just like write-scoped mutations.
+  ["scm.status", "scm", "operator.write", "2026.9"],
+  ["scm.diff", "scm", "operator.write", "2026.9"],
+  ["scm.stage", "scm", "operator.write", "2026.9"],
+  ["scm.unstage", "scm", "operator.write", "2026.9"],
+  ["scm.commit", "scm", "operator.write", "2026.9"],
   ["agents.list", "agents", "operator.read", "<=2026.7"],
   ["agents.create", "agents", "operator.admin", "<=2026.7"],
   ["agents.update", "agents", "operator.admin", "<=2026.7"],

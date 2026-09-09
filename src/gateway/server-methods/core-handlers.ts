@@ -49,6 +49,7 @@ const CORE_GATEWAY_HANDLER_MODULES = {
   doctor: () => import("./doctor.js").then((module) => module.createDoctorHandlers()),
   environments: () => import("./environments.js").then((module) => module.environmentsHandlers),
   worktrees: () => import("./worktrees.js").then((module) => module.worktreesHandlers),
+  scm: () => import("./scm.js").then((module) => module.scmHandlers),
   "exec-approvals": () =>
     import("./exec-approvals.js").then((module) => module.execApprovalsHandlers),
   fs: () => import("./fs.js").then((module) => module.fsHandlers),

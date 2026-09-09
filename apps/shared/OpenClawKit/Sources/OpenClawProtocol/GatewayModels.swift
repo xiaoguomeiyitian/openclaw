@@ -4362,6 +4362,154 @@ public struct WorktreesBranchesResult: Codable, Sendable {
     }
 }
 
+public struct ScmStatusParams: Codable, Sendable {
+    public let reporoot: String
+
+    public init(
+        reporoot: String)
+    {
+        self.reporoot = reporoot
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+    }
+}
+
+public struct ScmStatusFile: Codable, Sendable {
+    public let path: String
+    public let status: String
+    public let staged: Bool
+
+    public init(
+        path: String,
+        status: String,
+        staged: Bool)
+    {
+        self.path = path
+        self.status = status
+        self.staged = staged
+    }
+}
+
+public struct ScmStatusResult: Codable, Sendable {
+    public let changes: [ScmStatusFile]
+    public let staged: [ScmStatusFile]
+    public let untracked: [ScmStatusFile]
+    public let merge: [ScmStatusFile]
+
+    public init(
+        changes: [ScmStatusFile],
+        staged: [ScmStatusFile],
+        untracked: [ScmStatusFile],
+        merge: [ScmStatusFile])
+    {
+        self.changes = changes
+        self.staged = staged
+        self.untracked = untracked
+        self.merge = merge
+    }
+}
+
+public struct ScmDiffParams: Codable, Sendable {
+    public let reporoot: String
+    public let path: String
+    public let staged: Bool?
+
+    public init(
+        reporoot: String,
+        path: String,
+        staged: Bool? = nil)
+    {
+        self.reporoot = reporoot
+        self.path = path
+        self.staged = staged
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case path
+        case staged
+    }
+}
+
+public struct ScmDiffResult: Codable, Sendable {
+    public let diff: String
+    public let truncated: Bool?
+
+    public init(
+        diff: String,
+        truncated: Bool? = nil)
+    {
+        self.diff = diff
+        self.truncated = truncated
+    }
+}
+
+public struct ScmStageParams: Codable, Sendable {
+    public let reporoot: String
+    public let paths: [String]
+
+    public init(
+        reporoot: String,
+        paths: [String])
+    {
+        self.reporoot = reporoot
+        self.paths = paths
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case paths
+    }
+}
+
+public struct ScmUnstageParams: Codable, Sendable {
+    public let reporoot: String
+    public let paths: [String]
+
+    public init(
+        reporoot: String,
+        paths: [String])
+    {
+        self.reporoot = reporoot
+        self.paths = paths
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case paths
+    }
+}
+
+public struct ScmCommitParams: Codable, Sendable {
+    public let reporoot: String
+    public let message: String
+
+    public init(
+        reporoot: String,
+        message: String)
+    {
+        self.reporoot = reporoot
+        self.message = message
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case message
+    }
+}
+
+public struct ScmCommitResult: Codable, Sendable {
+    public let hash: String
+
+    public init(
+        hash: String)
+    {
+        self.hash = hash
+    }
+}
+
 public struct FsDirEntry: Codable, Sendable {
     public let name: String
     public let path: String

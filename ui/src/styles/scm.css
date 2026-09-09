@@ -1,0 +1,221 @@
+/* Source Control panel layout and status coloring.
+ * Follows the settings.css pattern: BEM classes scoped to the scm-* prefix,
+ * consuming shared design tokens (--space-*, --muted, --ok, --danger, --info).
+ */
+
+.scm-page__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+  gap: var(--space-4);
+  height: 100%;
+}
+
+.scm-page__changes,
+.scm-page__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* Changes tree */
+.scm-changes-tree__empty {
+  color: var(--muted);
+  padding: var(--space-3);
+}
+
+.scm-changes-tree__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.scm-changes-tree__heading {
+  margin: 0;
+  padding: var(--space-2) var(--space-2) var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.scm-changes-tree__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.scm-changes-tree__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border-radius: var(--radius);
+}
+
+.scm-changes-tree__row:hover {
+  background: var(--bg-hover);
+}
+
+.scm-changes-tree__row--selected {
+  background: var(--accent-subtle);
+}
+
+.scm-changes-tree__path {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: start;
+  color: var(--text);
+}
+
+.scm-changes-tree__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.scm-changes-tree__action {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: var(--radius);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.scm-changes-tree__action:hover {
+  color: var(--text-strong);
+  background: var(--bg-muted);
+}
+
+/* Status letter coloring */
+.scm-status__letter {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.72rem;
+}
+
+.scm-status--modified {
+  color: var(--info);
+}
+
+.scm-status--added {
+  color: var(--ok);
+}
+
+.scm-status--deleted {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
+.scm-status--conflict {
+  color: var(--danger);
+}
+
+.scm-status--renamed,
+.scm-status--copied,
+.scm-status--typechanged {
+  color: var(--info);
+}
+
+/* Commit box */
+.scm-commit-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.scm-commit-box__input {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  padding: var(--space-2);
+  background: var(--input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.scm-commit-box__input:focus {
+  outline: 1px solid var(--ring);
+}
+
+.scm-commit-box__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.scm-commit-box__status {
+  color: var(--ok-muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Diff view */
+.scm-diff-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-height: 200px;
+}
+
+.scm-diff-view__state {
+  color: var(--muted);
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+}
+
+.scm-diff-view__state--error {
+  color: var(--danger);
+}
+
+.scm-diff-view__truncated {
+  color: var(--warn);
+  font-size: 0.75rem;
+  padding: var(--space-1) var(--space-2);
+  background: var(--warn-subtle);
+  border-radius: var(--radius);
+}
+
+.scm-diff-view__pre {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: auto;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  white-space: pre;
+  color: var(--text);
+}

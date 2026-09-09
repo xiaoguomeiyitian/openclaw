@@ -3,6 +3,11 @@ import { Type } from "typebox";
 import { closedObject } from "./closed-object.js";
 import { NonEmptyString } from "./primitives.js";
 
+// Source-control schemas live in a sibling leaf and are re-exported here so the
+// `worktrees` owner module keeps the fixed 64-module barrel intact (mirrors
+// sessions.ts re-exporting sessions-title/sessions-goal).
+export * from "./scm.js";
+
 const WorktreeNameSchema = Type.String({ pattern: "^[a-z0-9][a-z0-9-]{0,63}$" });
 
 const WorktreeRunEndCleanupSchema = Type.Union([

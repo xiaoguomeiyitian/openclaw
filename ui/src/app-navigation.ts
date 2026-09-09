@@ -30,6 +30,7 @@ export const SIDEBAR_NAV_ROUTES = [
   "plugins",
   "apps",
   "portals",
+  "source-control",
 ] as const satisfies readonly NavigationRouteId[];
 
 // Routes presented as tabs of the Plugins hub. The sidebar highlights the
@@ -321,6 +322,7 @@ const NAVIGATION_PRESENTATION: Record<NavigationRouteId, NavigationPresentation>
   approvals: ["badgeCheck", "tabs.approvals", "subtitles.approvals"],
   workboard: ["kanban", "tabs.workboard", "subtitles.workboard"],
   worktrees: ["folder", "tabs.worktrees", "subtitles.worktrees"],
+  "source-control": ["diff", "tabs.sourceControl", "subtitles.sourceControl"],
   channels: ["link", "tabs.channels", "subtitles.channels"],
   connection: ["radio", "tabs.connection", "subtitles.connection"],
   sessions: ["fileText", "tabs.sessions", "subtitles.sessions"],
