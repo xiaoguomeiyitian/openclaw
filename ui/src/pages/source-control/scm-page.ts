@@ -522,13 +522,13 @@ class ScmPage extends OpenClawLightDomElement {
     const body = html`
       <div
         class="scm-page"
-        @scm-action=${this.onScmAction}
-        @scm-select=${this.onScmSelect}
-        @scm-commit=${this.onScmCommit}
-        @scm-checkout=${this.onScmCheckout}
-        @scm-checkout-new=${this.onScmCheckoutNew}
-        @scm-sync=${this.onScmSync}
-        @scm-resolve=${this.onScmResolve}
+        @scm-action=${(e: Event) => this.onScmAction(e)}
+        @scm-select=${(e: Event) => this.onScmSelect(e)}
+        @scm-commit=${(e: Event) => this.onScmCommit(e)}
+        @scm-checkout=${(e: Event) => this.onScmCheckout(e)}
+        @scm-checkout-new=${(e: Event) => this.onScmCheckoutNew(e)}
+        @scm-sync=${(e: Event) => this.onScmSync(e)}
+        @scm-resolve=${(e: Event) => this.onScmResolve(e)}
       >
         ${this.error ? html`<div class="callout danger" role="alert">${this.error}</div>` : html``}
         ${this.renderHeader()} ${this.renderTabs()}
