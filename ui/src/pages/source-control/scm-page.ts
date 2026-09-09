@@ -3,8 +3,13 @@ import { initialState, Task, TaskStatus } from "@lit/task";
 import { html } from "lit";
 import { state } from "lit/decorators.js";
 import type {
+  ScmBranch,
+  ScmBranchesResult,
+  ScmCommitInfo,
   ScmCommitResult,
+  ScmConflictsResult,
   ScmDiffResult,
+  ScmLogResult,
   ScmStatusFile,
   WorktreeRecord,
 } from "../../../../packages/gateway-protocol/src/index.js";
@@ -13,12 +18,16 @@ import "../../styles/scm.css";
 import { subtitleForRoute, titleForRoute } from "../../app-navigation.ts";
 import { applicationContext, type ApplicationContext } from "../../app/context.ts";
 import { renderSettingsWorkspace } from "../../components/settings-workspace.ts";
+import { t } from "../../i18n/index.ts";
 import { formatUiError } from "../../lib/format-error.ts";
 import { GatewayPageController } from "../../lit/gateway-page-controller.ts";
 import { OpenClawLightDomElement } from "../../lit/openclaw-element.ts";
+import "./scm-branches.ts";
 import "./scm-changes-tree.ts";
 import "./scm-commit-box.ts";
+import "./scm-conflicts.ts";
 import "./scm-diff-view.ts";
+import "./scm-history.ts";
 
 type WorktreesListResult = { worktrees: WorktreeRecord[] };
 type ScmStatusResult = {
@@ -27,11 +36,20 @@ type ScmStatusResult = {
   untracked: ScmStatusFile[];
   merge: ScmStatusFile[];
 };
+type ScmTabKey = "changes" | "branches" | "history" | "conflicts";
+
+const SCM_TABS: Array<{ key: ScmTabKey; labelKey: string }> = [
+  { key: "changes", labelKey: "scm.groupChanges" },
+  { key: "branches", labelKey: "scm.branches" },
+  { key: "history", labelKey: "scm.history" },
+  { key: "conflicts", labelKey: "scm.conflicts" },
+];
 
 /**
  * Source Control panel container. Resolves the active worktree via
- * worktrees.list (latest `lastActiveAt`, not removed), then drives scm.status
- * and coordinates the diff preview, stage/unstage, and commit subviews.
+ * worktrees.list (latest `lastActiveAt`, not removed), then drives scm.status,
+ * branches, history, conflicts, and coordinates the diff preview, stage/unstage,
+ * commit, checkout, sync, and conflict-resolution subviews.
  */
 class ScmPage extends OpenClawLightDomElement {
   @consume({ context: applicationContext, subscribe: true })
@@ -53,6 +71,14 @@ class ScmPage extends OpenClawLightDomElement {
   @state() private busy = false;
   @state() private lastCommitHash: string | null = null;
 
+  @state() private activeTab: ScmTabKey = "changes";
+  @state() private currentBranch: string | null = null;
+  @state() private branches: ScmBranch[] = [];
+  @state() private ahead: number | null = null;
+  @state() private behind: number | null = null;
+  @state() private commits: ScmCommitInfo[] = [];
+  @state() private conflictPaths: string[] = [];
+
   private statusClient: GatewayBrowserClient | null = null;
   private readonly gateway = new GatewayPageController(this, {
     getGateway: () => this.context?.gateway,
@@ -61,6 +87,10 @@ class ScmPage extends OpenClawLightDomElement {
       this.statusGroups = { changes: [], staged: [], untracked: [], merge: [] };
       this.selectedPath = null;
       this.error = null;
+      this.currentBranch = null;
+      this.branches = [];
+      this.commits = [];
+      this.conflictPaths = [];
     },
     invalidateRequests: (change) => {
       if (change.snapshot.phase !== "connected" || !change.snapshot.client) {
@@ -102,6 +132,7 @@ class ScmPage extends OpenClawLightDomElement {
       }
       this.repoRoot = result.worktree.repoRoot;
       this.statusGroups = result.status;
+      void this.loadSecondary();
     },
     onError: (error) => {
       this.error = formatUiError(error);
@@ -130,6 +161,48 @@ class ScmPage extends OpenClawLightDomElement {
     this.statusClient = client;
     this.error = null;
     await this.statusTask.run([client]);
+  }
+
+  /**
+   * Refresh the branch/history/conflicts panels after the repo root is known.
+   * Each request is best-effort: an individual failure leaves the panel empty
+   * rather than failing the whole page.
+   */
+  private async loadSecondary() {
+    const scope = this.gateway.capture();
+    const repoRoot = this.repoRoot;
+    if (!scope || !repoRoot) {
+      return;
+    }
+    try {
+      const branches = await scope.client.request<ScmBranchesResult>("scm.branches", { repoRoot });
+      if (this.gateway.isCurrent(scope)) {
+        this.branches = branches.branches;
+        this.currentBranch = branches.current;
+        this.ahead = branches.ahead ?? null;
+        this.behind = branches.behind ?? null;
+      }
+    } catch {
+      // Branch list is advisory; leave the panel empty on failure.
+    }
+    try {
+      const log = await scope.client.request<ScmLogResult>("scm.log", { repoRoot });
+      if (this.gateway.isCurrent(scope)) {
+        this.commits = log.commits;
+      }
+    } catch {
+      // History is advisory.
+    }
+    try {
+      const conflicts = await scope.client.request<ScmConflictsResult>("scm.conflicts", {
+        repoRoot,
+      });
+      if (this.gateway.isCurrent(scope)) {
+        this.conflictPaths = conflicts.paths;
+      }
+    } catch {
+      // Conflicts are advisory.
+    }
   }
 
   private async selectFile(path: string) {
@@ -221,22 +294,228 @@ class ScmPage extends OpenClawLightDomElement {
     }
   }
 
+  private async checkout(branch: string) {
+    const scope = this.gateway.capture();
+    const repoRoot = this.repoRoot;
+    if (!scope || !repoRoot || this.busy) {
+      return;
+    }
+    this.busy = true;
+    this.error = null;
+    try {
+      await scope.client.request("scm.checkout", { repoRoot, branch });
+      if (this.gateway.isCurrent(scope)) {
+        await this.load();
+      }
+    } catch (error) {
+      if (this.gateway.isCurrent(scope)) {
+        this.error = formatUiError(error);
+      }
+    } finally {
+      if (this.gateway.isCurrent(scope)) {
+        this.busy = false;
+      }
+    }
+  }
+
+  private async checkoutNew(name: string) {
+    const scope = this.gateway.capture();
+    const repoRoot = this.repoRoot;
+    if (!scope || !repoRoot || this.busy) {
+      return;
+    }
+    this.busy = true;
+    this.error = null;
+    try {
+      await scope.client.request("scm.checkoutNew", { repoRoot, name });
+      if (this.gateway.isCurrent(scope)) {
+        await this.load();
+      }
+    } catch (error) {
+      if (this.gateway.isCurrent(scope)) {
+        this.error = formatUiError(error);
+      }
+    } finally {
+      if (this.gateway.isCurrent(scope)) {
+        this.busy = false;
+      }
+    }
+  }
+
+  private async sync(action: "fetch" | "pull" | "push") {
+    const scope = this.gateway.capture();
+    const repoRoot = this.repoRoot;
+    if (!scope || !repoRoot || this.busy) {
+      return;
+    }
+    this.busy = true;
+    this.error = null;
+    try {
+      await scope.client.request(`scm.${action}`, { repoRoot });
+      if (this.gateway.isCurrent(scope)) {
+        await this.load();
+      }
+    } catch (error) {
+      if (this.gateway.isCurrent(scope)) {
+        this.error = formatUiError(error);
+      }
+    } finally {
+      if (this.gateway.isCurrent(scope)) {
+        this.busy = false;
+      }
+    }
+  }
+
+  private async resolve(path: string, resolution: "theirs" | "ours") {
+    const scope = this.gateway.capture();
+    const repoRoot = this.repoRoot;
+    if (!scope || !repoRoot || this.busy) {
+      return;
+    }
+    this.busy = true;
+    this.error = null;
+    try {
+      await scope.client.request("scm.resolve", { repoRoot, path, resolution });
+      if (this.gateway.isCurrent(scope)) {
+        await this.load();
+      }
+    } catch (error) {
+      if (this.gateway.isCurrent(scope)) {
+        this.error = formatUiError(error);
+      }
+    } finally {
+      if (this.gateway.isCurrent(scope)) {
+        this.busy = false;
+      }
+    }
+  }
+
   private onScmAction(event: Event) {
-    // SAFETY: the openclaw-scm-changes-tree child dispatches this event with this detail.
     const detail = (event as CustomEvent).detail as { action: "stage" | "unstage"; path: string };
     void this.stageOrUnstage(detail.action, detail.path);
   }
 
   private onScmSelect(event: Event) {
-    // SAFETY: the openclaw-scm-changes-tree child dispatches this event with this detail.
     const detail = (event as CustomEvent).detail as { path: string };
     void this.selectFile(detail.path);
   }
 
   private onScmCommit(event: Event) {
-    // SAFETY: the openclaw-scm-commit-box child dispatches this event with this detail.
     const detail = (event as CustomEvent).detail as { message: string };
     void this.commit(detail.message);
+  }
+
+  private onScmCheckout(event: Event) {
+    const detail = (event as CustomEvent).detail as { branch: string };
+    void this.checkout(detail.branch);
+  }
+
+  private onScmCheckoutNew(event: Event) {
+    const detail = (event as CustomEvent).detail as { name: string };
+    void this.checkoutNew(detail.name);
+  }
+
+  private onScmSync(event: Event) {
+    const detail = (event as CustomEvent).detail as { action: "fetch" | "pull" | "push" };
+    void this.sync(detail.action);
+  }
+
+  private onScmResolve(event: Event) {
+    const detail = (event as CustomEvent).detail as { path: string; resolution: "theirs" | "ours" };
+    void this.resolve(detail.path, detail.resolution);
+  }
+
+  private renderHeader() {
+    return html`
+      <div class="scm-page__header">
+        <span class="scm-page__repo" title=${this.repoRoot ?? ""}>${this.repoRoot}</span>
+        ${
+          this.currentBranch
+            ? html`<span class="scm-page__branch">${this.currentBranch}</span>`
+            : html``
+        }
+      </div>
+    `;
+  }
+
+  private renderTabs() {
+    return html`
+      <div class="scm-page__tabs" role="tablist">
+        ${SCM_TABS.map(
+          (tab) => html`
+            <button
+              type="button"
+              role="tab"
+              class="scm-page__tab${this.activeTab === tab.key ? " scm-page__tab--active" : ""}"
+              aria-selected=${this.activeTab === tab.key ? "true" : "false"}
+              @click=${() => {
+                this.activeTab = tab.key;
+              }}
+            >
+              ${t(tab.labelKey)}
+              ${
+                tab.key === "conflicts" && this.conflictPaths.length > 0
+                  ? html`<span class="scm-page__tab-badge">${this.conflictPaths.length}</span>`
+                  : html``
+              }
+            </button>
+          `,
+        )}
+      </div>
+    `;
+  }
+
+  private renderChangesTab() {
+    return html`
+      <div class="scm-page__layout">
+        <div class="scm-page__changes">
+          <openclaw-scm-changes-tree
+            .status=${this.statusGroups}
+            .selectedPath=${this.selectedPath}
+          ></openclaw-scm-changes-tree>
+        </div>
+        <div class="scm-page__detail">
+          <openclaw-scm-diff-view
+            .path=${this.selectedPath}
+            .diff=${this.diff}
+            .truncated=${this.diffTruncated}
+            .loading=${this.diffLoading}
+            .error=${this.diffError}
+          ></openclaw-scm-diff-view>
+          <openclaw-scm-commit-box
+            .hasStaged=${this.hasStaged}
+            .committing=${this.busy}
+            .lastCommitHash=${this.lastCommitHash}
+          ></openclaw-scm-commit-box>
+        </div>
+      </div>
+    `;
+  }
+
+  private renderSecondaryTab() {
+    switch (this.activeTab) {
+      case "branches":
+        return html`
+          <openclaw-scm-branches
+            .branches=${this.branches}
+            .current=${this.currentBranch}
+            .ahead=${this.ahead}
+            .behind=${this.behind}
+            .busy=${this.busy}
+          ></openclaw-scm-branches>
+        `;
+      case "history":
+        return html`<openclaw-scm-history .commits=${this.commits}></openclaw-scm-history>`;
+      case "conflicts":
+        return html`
+          <openclaw-scm-conflicts
+            .paths=${this.conflictPaths}
+            .busy=${this.busy}
+          ></openclaw-scm-conflicts>
+        `;
+      default:
+        return this.renderChangesTab();
+    }
   }
 
   override render() {
@@ -246,30 +525,14 @@ class ScmPage extends OpenClawLightDomElement {
         @scm-action=${this.onScmAction}
         @scm-select=${this.onScmSelect}
         @scm-commit=${this.onScmCommit}
+        @scm-checkout=${this.onScmCheckout}
+        @scm-checkout-new=${this.onScmCheckoutNew}
+        @scm-sync=${this.onScmSync}
+        @scm-resolve=${this.onScmResolve}
       >
         ${this.error ? html`<div class="callout danger" role="alert">${this.error}</div>` : html``}
-        <div class="scm-page__layout">
-          <div class="scm-page__changes">
-            <openclaw-scm-changes-tree
-              .status=${this.statusGroups}
-              .selectedPath=${this.selectedPath}
-            ></openclaw-scm-changes-tree>
-          </div>
-          <div class="scm-page__detail">
-            <openclaw-scm-diff-view
-              .path=${this.selectedPath}
-              .diff=${this.diff}
-              .truncated=${this.diffTruncated}
-              .loading=${this.diffLoading}
-              .error=${this.diffError}
-            ></openclaw-scm-diff-view>
-            <openclaw-scm-commit-box
-              .hasStaged=${this.hasStaged}
-              .committing=${this.busy}
-              .lastCommitHash=${this.lastCommitHash}
-            ></openclaw-scm-commit-box>
-          </div>
-        </div>
+        ${this.renderHeader()} ${this.renderTabs()}
+        <div class="scm-page__content">${this.renderSecondaryTab()}</div>
       </div>
     `;
     return html`

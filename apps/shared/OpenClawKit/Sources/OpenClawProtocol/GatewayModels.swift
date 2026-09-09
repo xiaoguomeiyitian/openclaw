@@ -4510,6 +4510,228 @@ public struct ScmCommitResult: Codable, Sendable {
     }
 }
 
+public struct ScmBranchesParams: Codable, Sendable {
+    public let reporoot: String
+
+    public init(
+        reporoot: String)
+    {
+        self.reporoot = reporoot
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+    }
+}
+
+public struct ScmBranch: Codable, Sendable {
+    public let name: String
+    public let iscurrent: Bool
+
+    public init(
+        name: String,
+        iscurrent: Bool)
+    {
+        self.name = name
+        self.iscurrent = iscurrent
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case iscurrent = "isCurrent"
+    }
+}
+
+public struct ScmBranchesResult: Codable, Sendable {
+    public let branches: [ScmBranch]
+    public let current: String
+    public let ahead: Int?
+    public let behind: Int?
+
+    public init(
+        branches: [ScmBranch],
+        current: String,
+        ahead: Int? = nil,
+        behind: Int? = nil)
+    {
+        self.branches = branches
+        self.current = current
+        self.ahead = ahead
+        self.behind = behind
+    }
+}
+
+public struct ScmCheckoutParams: Codable, Sendable {
+    public let reporoot: String
+    public let branch: String
+
+    public init(
+        reporoot: String,
+        branch: String)
+    {
+        self.reporoot = reporoot
+        self.branch = branch
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case branch
+    }
+}
+
+public struct ScmCheckoutNewParams: Codable, Sendable {
+    public let reporoot: String
+    public let name: String
+
+    public init(
+        reporoot: String,
+        name: String)
+    {
+        self.reporoot = reporoot
+        self.name = name
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case name
+    }
+}
+
+public struct ScmFetchParams: Codable, Sendable {
+    public let reporoot: String
+
+    public init(
+        reporoot: String)
+    {
+        self.reporoot = reporoot
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+    }
+}
+
+public struct ScmPullParams: Codable, Sendable {
+    public let reporoot: String
+
+    public init(
+        reporoot: String)
+    {
+        self.reporoot = reporoot
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+    }
+}
+
+public struct ScmPushParams: Codable, Sendable {
+    public let reporoot: String
+
+    public init(
+        reporoot: String)
+    {
+        self.reporoot = reporoot
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+    }
+}
+
+public struct ScmLogParams: Codable, Sendable {
+    public let reporoot: String
+    public let limit: Int?
+
+    public init(
+        reporoot: String,
+        limit: Int? = nil)
+    {
+        self.reporoot = reporoot
+        self.limit = limit
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case limit
+    }
+}
+
+public struct ScmCommitInfo: Codable, Sendable {
+    public let hash: String
+    public let author: String
+    public let date: String
+    public let message: String
+
+    public init(
+        hash: String,
+        author: String,
+        date: String,
+        message: String)
+    {
+        self.hash = hash
+        self.author = author
+        self.date = date
+        self.message = message
+    }
+}
+
+public struct ScmLogResult: Codable, Sendable {
+    public let commits: [ScmCommitInfo]
+
+    public init(
+        commits: [ScmCommitInfo])
+    {
+        self.commits = commits
+    }
+}
+
+public struct ScmConflictsParams: Codable, Sendable {
+    public let reporoot: String
+
+    public init(
+        reporoot: String)
+    {
+        self.reporoot = reporoot
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+    }
+}
+
+public struct ScmConflictsResult: Codable, Sendable {
+    public let paths: [String]
+
+    public init(
+        paths: [String])
+    {
+        self.paths = paths
+    }
+}
+
+public struct ScmResolveParams: Codable, Sendable {
+    public let reporoot: String
+    public let path: String
+    public let resolution: String
+
+    public init(
+        reporoot: String,
+        path: String,
+        resolution: String)
+    {
+        self.reporoot = reporoot
+        self.path = path
+        self.resolution = resolution
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case reporoot = "repoRoot"
+        case path
+        case resolution
+    }
+}
+
 public struct FsDirEntry: Codable, Sendable {
     public let name: String
     public let path: String

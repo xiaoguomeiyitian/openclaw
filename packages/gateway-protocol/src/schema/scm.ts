@@ -54,6 +54,76 @@ export const ScmCommitResultSchema = closedObject({
   hash: NonEmptyString,
 });
 
+// Phase 2: branches and ref mutations (checkout/checkoutNew/fetch/pull/push).
+export const ScmBranchesParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+});
+
+export const ScmBranchSchema = closedObject({
+  name: NonEmptyString,
+  isCurrent: Type.Boolean(),
+});
+
+export const ScmBranchesResultSchema = closedObject({
+  branches: Type.Array(ScmBranchSchema),
+  current: NonEmptyString,
+  ahead: Type.Optional(Type.Integer()),
+  behind: Type.Optional(Type.Integer()),
+});
+
+export const ScmCheckoutParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+  branch: NonEmptyString,
+});
+
+export const ScmCheckoutNewParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+  name: NonEmptyString,
+});
+
+export const ScmFetchParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+});
+
+export const ScmPullParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+});
+
+export const ScmPushParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+});
+
+// Phase 3: commit history, merge conflicts, and conflict resolution.
+export const ScmLogParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+  limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 200 })),
+});
+
+export const ScmCommitInfoSchema = closedObject({
+  hash: NonEmptyString,
+  author: NonEmptyString,
+  date: NonEmptyString,
+  message: NonEmptyString,
+});
+
+export const ScmLogResultSchema = closedObject({
+  commits: Type.Array(ScmCommitInfoSchema),
+});
+
+export const ScmConflictsParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+});
+
+export const ScmConflictsResultSchema = closedObject({
+  paths: Type.Array(NonEmptyString),
+});
+
+export const ScmResolveParamsSchema = closedObject({
+  repoRoot: NonEmptyString,
+  path: NonEmptyString,
+  resolution: Type.String({ enum: ["theirs", "ours"] }),
+});
+
 // Wire types derive directly from local schema consts so public d.ts graphs
 // never pull in the ProtocolSchemas registry.
 export type ScmStatusParams = Static<typeof ScmStatusParamsSchema>;
@@ -65,3 +135,17 @@ export type ScmStageParams = Static<typeof ScmStageParamsSchema>;
 export type ScmUnstageParams = Static<typeof ScmUnstageParamsSchema>;
 export type ScmCommitParams = Static<typeof ScmCommitParamsSchema>;
 export type ScmCommitResult = Static<typeof ScmCommitResultSchema>;
+export type ScmBranchesParams = Static<typeof ScmBranchesParamsSchema>;
+export type ScmBranch = Static<typeof ScmBranchSchema>;
+export type ScmBranchesResult = Static<typeof ScmBranchesResultSchema>;
+export type ScmCheckoutParams = Static<typeof ScmCheckoutParamsSchema>;
+export type ScmCheckoutNewParams = Static<typeof ScmCheckoutNewParamsSchema>;
+export type ScmFetchParams = Static<typeof ScmFetchParamsSchema>;
+export type ScmPullParams = Static<typeof ScmPullParamsSchema>;
+export type ScmPushParams = Static<typeof ScmPushParamsSchema>;
+export type ScmLogParams = Static<typeof ScmLogParamsSchema>;
+export type ScmCommitInfo = Static<typeof ScmCommitInfoSchema>;
+export type ScmLogResult = Static<typeof ScmLogResultSchema>;
+export type ScmConflictsParams = Static<typeof ScmConflictsParamsSchema>;
+export type ScmConflictsResult = Static<typeof ScmConflictsResultSchema>;
+export type ScmResolveParams = Static<typeof ScmResolveParamsSchema>;

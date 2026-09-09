@@ -175,4 +175,208 @@ describe("scm RPC handlers", () => {
       expect(hoisted.runGit).toHaveBeenCalledTimes(1);
     });
   });
+
+  describe("scm.branches", () => {
+    it("parses branches, current, and ahead/behind counts", async () => {
+      hoisted.runGit
+        .mockResolvedValueOnce(okResult("feature/a|\nmain|*\ndev|"))
+        .mockResolvedValueOnce(okResult("main\n"))
+        .mockResolvedValueOnce(okResult("2\t3"));
+
+      const calls = await invokeScm("scm.branches", { repoRoot: "/repo" });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      const payload = calls[0]?.payload as {
+        branches: Array<{ name: string; isCurrent: boolean }>;
+        current: string;
+        ahead?: number;
+        behind?: number;
+      };
+      expect(payload.branches).toEqual([
+        { name: "feature/a", isCurrent: false },
+        { name: "main", isCurrent: true },
+        { name: "dev", isCurrent: false },
+      ]);
+      expect(payload.current).toBe("main");
+      expect(payload.ahead).toBe(3);
+      expect(payload.behind).toBe(2);
+      expect(hoisted.runGit).toHaveBeenNthCalledWith(1, "/repo", [
+        "branch",
+        "--format=%(refname:short)|%(HEAD)",
+        "--sort=refname",
+      ]);
+      expect(hoisted.runGit).toHaveBeenNthCalledWith(2, "/repo", [
+        "rev-parse",
+        "--abbrev-ref",
+        "HEAD",
+      ]);
+      expect(hoisted.runGit).toHaveBeenNthCalledWith(3, "/repo", [
+        "rev-list",
+        "--left-right",
+        "--count",
+        "HEAD...@{upstream}",
+      ]);
+    });
+
+    it("drops ahead/behind when upstream tracking is missing", async () => {
+      hoisted.runGit
+        .mockResolvedValueOnce(okResult("main|*"))
+        .mockResolvedValueOnce(okResult("main\n"))
+        .mockResolvedValueOnce(errorResult("no upstream"));
+
+      const calls = await invokeScm("scm.branches", { repoRoot: "/repo" });
+      const payload = calls[0]?.payload as { ahead?: number; behind?: number };
+      expect(calls[0]?.ok).toBe(true);
+      expect(payload.ahead).toBeUndefined();
+      expect(payload.behind).toBeUndefined();
+    });
+  });
+
+  describe("scm.checkout and checkoutNew", () => {
+    it("checks out an existing branch", async () => {
+      hoisted.runGit.mockResolvedValueOnce(okResult(""));
+
+      const calls = await invokeScm("scm.checkout", { repoRoot: "/repo", branch: "main" });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      expect(hoisted.runGit).toHaveBeenCalledWith("/repo", ["checkout", "main"]);
+    });
+
+    it("creates and checks out a new branch", async () => {
+      hoisted.runGit.mockResolvedValueOnce(okResult(""));
+
+      const calls = await invokeScm("scm.checkoutNew", {
+        repoRoot: "/repo",
+        name: "feature/x",
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      expect(hoisted.runGit).toHaveBeenCalledWith("/repo", ["checkout", "-b", "feature/x"]);
+    });
+
+    it("reports checkout failure", async () => {
+      hoisted.runGit.mockResolvedValueOnce(errorResult("local changes would be overwritten"));
+
+      const calls = await invokeScm("scm.checkout", { repoRoot: "/repo", branch: "main" });
+      expect(calls[0]?.ok).toBe(false);
+    });
+  });
+
+  describe("scm.fetch/pull/push", () => {
+    it.each([
+      ["scm.fetch", ["fetch"]],
+      ["scm.pull", ["pull"]],
+      ["scm.push", ["push"]],
+    ])('runs "%s" via the matching git command', async (method, args) => {
+      hoisted.runGit.mockResolvedValueOnce(okResult(""));
+
+      const calls = await invokeScm(method, { repoRoot: "/repo" });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      expect(hoisted.runGit).toHaveBeenCalledWith("/repo", args);
+    });
+  });
+
+  describe("scm.log", () => {
+    it("parses NUL-separated commit log output", async () => {
+      const nul = "\u0000";
+      hoisted.runGit.mockResolvedValueOnce(
+        okResult(
+          `abc123${nul}Alice${nul}2026-09-09T01:00:00+00:00${nul}feat: first\ndef456${nul}Bob${nul}2026-09-09T02:00:00+00:00${nul}fix: second`,
+        ),
+      );
+
+      const calls = await invokeScm("scm.log", { repoRoot: "/repo", limit: 10 });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      const payload = calls[0]?.payload as {
+        commits: Array<{ hash: string; author: string; date: string; message: string }>;
+      };
+      expect(payload.commits).toEqual([
+        {
+          hash: "abc123",
+          author: "Alice",
+          date: "2026-09-09T01:00:00+00:00",
+          message: "feat: first",
+        },
+        {
+          hash: "def456",
+          author: "Bob",
+          date: "2026-09-09T02:00:00+00:00",
+          message: "fix: second",
+        },
+      ]);
+      expect(hoisted.runGit).toHaveBeenCalledWith("/repo", [
+        "log",
+        "--format=%H%x00%an%x00%aI%x00%s",
+        "-n 10",
+      ]);
+    });
+
+    it("defaults the limit to 20 when omitted", async () => {
+      hoisted.runGit.mockResolvedValueOnce(okResult(""));
+
+      const calls = await invokeScm("scm.log", { repoRoot: "/repo" });
+      expect(calls[0]?.ok).toBe(true);
+      expect(hoisted.runGit).toHaveBeenCalledWith("/repo", [
+        "log",
+        "--format=%H%x00%an%x00%aI%x00%s",
+        "-n 20",
+      ]);
+    });
+  });
+
+  describe("scm.conflicts", () => {
+    it("parses conflicted paths and drops blank lines", async () => {
+      hoisted.runGit.mockResolvedValueOnce(okResult("src/a.ts\n\nsrc/b.ts\n"));
+
+      const calls = await invokeScm("scm.conflicts", { repoRoot: "/repo" });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      const payload = calls[0]?.payload as { paths: string[] };
+      expect(payload.paths).toEqual(["src/a.ts", "src/b.ts"]);
+      expect(hoisted.runGit).toHaveBeenCalledWith("/repo", [
+        "diff",
+        "--name-only",
+        "--diff-filter=U",
+      ]);
+    });
+  });
+
+  describe("scm.resolve", () => {
+    it.each([
+      ["theirs", "--theirs"],
+      ["ours", "--ours"],
+    ])("resolves with %s side and stages the path", async (resolution, flag) => {
+      hoisted.runGit.mockResolvedValueOnce(okResult("")); // checkout --theirs/--ours
+      hoisted.runGit.mockResolvedValueOnce(okResult("")); // add
+
+      const calls = await invokeScm("scm.resolve", {
+        repoRoot: "/repo",
+        path: "src/a.ts",
+        resolution,
+      });
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.ok).toBe(true);
+      expect(hoisted.runGit).toHaveBeenNthCalledWith(1, "/repo", [
+        "checkout",
+        flag,
+        "--",
+        "src/a.ts",
+      ]);
+      expect(hoisted.runGit).toHaveBeenNthCalledWith(2, "/repo", ["add", "--", "src/a.ts"]);
+    });
+
+    it("reports checkout failure without staging", async () => {
+      hoisted.runGit.mockResolvedValueOnce(errorResult("pathspec did not match"));
+
+      const calls = await invokeScm("scm.resolve", {
+        repoRoot: "/repo",
+        path: "src/a.ts",
+        resolution: "theirs",
+      });
+      expect(calls[0]?.ok).toBe(false);
+      expect(hoisted.runGit).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -92,9 +92,16 @@ export async function runGit(
       input: gitArgs === args ? options.input : undefined,
       killProcessTree: fetchesRefs && gitArgs === args,
     });
+  // Ref-moving commands serialize through the shared owner so linked worktrees
+  // never race a checkout/pull/push against an in-flight ref mutation. Read-shaped
+  // branch invocations (`git branch` without a delete flag) stay outside the queue.
   const mutatesRefs =
     fetchesRefs ||
     args[0] === "update-ref" ||
+    args[0] === "checkout" ||
+    args[0] === "merge" ||
+    args[0] === "pull" ||
+    args[0] === "push" ||
     (args[0] === "branch" &&
       args.some((arg) => arg === "-d" || arg === "-D" || arg === "--delete"));
   if (!mutatesRefs) {

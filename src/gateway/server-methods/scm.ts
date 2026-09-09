@@ -1,8 +1,17 @@
 import {
   ErrorCodes,
   errorShape,
+  validateScmBranchesParams,
+  validateScmCheckoutNewParams,
+  validateScmCheckoutParams,
   validateScmCommitParams,
+  validateScmConflictsParams,
   validateScmDiffParams,
+  validateScmFetchParams,
+  validateScmLogParams,
+  validateScmPullParams,
+  validateScmPushParams,
+  validateScmResolveParams,
   validateScmStageParams,
   validateScmStatusParams,
   validateScmUnstageParams,
@@ -150,6 +159,87 @@ function groupStatusEntries(entries: ScmStatusFile[]): {
   return { changes, staged, untracked, merge };
 }
 
+type ScmBranch = {
+  name: string;
+  isCurrent: boolean;
+};
+
+/**
+ * Parse `git branch --format=%(refname:short)|%(HEAD)` lines into branch
+ * entries. `%(HEAD)` renders `*` for the checked-out branch, empty otherwise.
+ */
+function parseBranches(output: string): ScmBranch[] {
+  const branches: ScmBranch[] = [];
+  for (const line of output.split("\n")) {
+    if (line.length === 0) {
+      continue;
+    }
+    const separator = line.indexOf("|");
+    if (separator < 0) {
+      branches.push({ name: line, isCurrent: false });
+      continue;
+    }
+    branches.push({
+      name: line.slice(0, separator),
+      isCurrent: line.slice(separator + 1) === "*",
+    });
+  }
+  return branches;
+}
+
+/**
+ * Parse `git rev-list --left-right --count HEAD...@{upstream}` (tab-separated
+ * `behind ahead`) into an ahead/behind pair.
+ */
+function parseAheadBehind(output: string): { ahead: number; behind: number } | null {
+  const columns = output.trim().split(/\s+/);
+  if (columns.length !== 2) {
+    return null;
+  }
+  const behind = Number.parseInt(columns[0] ?? "", 10);
+  const ahead = Number.parseInt(columns[1] ?? "", 10);
+  if (!Number.isFinite(behind) || !Number.isFinite(ahead)) {
+    return null;
+  }
+  return { ahead, behind };
+}
+
+/**
+ * Parse `git log --format=%H%x00%an%x00%aI%x00%s` output into commit records.
+ * Each commit is one line; fields are NUL-separated (hash, author, date, subject).
+ */
+function parseLog(
+  output: string,
+): Array<{ hash: string; author: string; date: string; message: string }> {
+  const commits: Array<{ hash: string; author: string; date: string; message: string }> = [];
+  for (const line of output.split("\n")) {
+    if (line.length === 0) {
+      continue;
+    }
+    const fields = line.split("\0");
+    if (fields.length !== 4) {
+      continue;
+    }
+    const hash = fields[0] ?? "";
+    const author = fields[1] ?? "";
+    const date = fields[2] ?? "";
+    const message = fields[3] ?? "";
+    if (!hash || !author || !date || !message) {
+      continue;
+    }
+    commits.push({ hash, author, date, message });
+  }
+  return commits;
+}
+
+/** Parse `git diff --name-only --diff-filter=U` into a list of conflicted paths. */
+function parseConflicts(output: string): string[] {
+  return output
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
 export function createScmHandlers(): GatewayRequestHandlers {
   return {
     "scm.status": async (opts) => {
@@ -272,6 +362,243 @@ export function createScmHandlers(): GatewayRequestHandlers {
         return;
       }
       respond(true, { hash: revParse.stdout.trim() }, undefined);
+    },
+    "scm.branches": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmBranchesParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.branches", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const list = await runGit(repoRoot, [
+        "branch",
+        "--format=%(refname:short)|%(HEAD)",
+        "--sort=refname",
+      ]);
+      if (list.termination !== "exit" || list.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, list.stderr || "git branch failed"),
+        );
+        return;
+      }
+      const current = await runGit(repoRoot, ["rev-parse", "--abbrev-ref", "HEAD"]);
+      if (current.termination !== "exit" || current.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, current.stderr || "git rev-parse failed"),
+        );
+        return;
+      }
+      // Ahead/behind only reflects an upstream tracking branch; absent upstream
+      // (or a fresh local branch) is not an error, so drop the counts silently.
+      const aheadBehind = await runGit(repoRoot, [
+        "rev-list",
+        "--left-right",
+        "--count",
+        "HEAD...@{upstream}",
+      ]);
+      const counts =
+        aheadBehind.termination !== "exit" || aheadBehind.code !== 0
+          ? null
+          : parseAheadBehind(aheadBehind.stdout);
+      respond(
+        true,
+        {
+          branches: parseBranches(list.stdout),
+          current: current.stdout.trim(),
+          ...(counts ? { ahead: counts.ahead, behind: counts.behind } : {}),
+        },
+        undefined,
+      );
+    },
+    "scm.checkout": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmCheckoutParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.checkout", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const result = await runGit(repoRoot, ["checkout", params.branch]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git checkout failed"),
+        );
+        return;
+      }
+      respond(true, {}, undefined);
+    },
+    "scm.checkoutNew": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmCheckoutNewParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.checkoutNew", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const result = await runGit(repoRoot, ["checkout", "-b", params.name]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git checkout failed"),
+        );
+        return;
+      }
+      respond(true, {}, undefined);
+    },
+    "scm.fetch": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmFetchParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.fetch", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const result = await runGit(repoRoot, ["fetch"]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git fetch failed"),
+        );
+        return;
+      }
+      respond(true, {}, undefined);
+    },
+    "scm.pull": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmPullParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.pull", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const result = await runGit(repoRoot, ["pull"]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git pull failed"),
+        );
+        return;
+      }
+      respond(true, {}, undefined);
+    },
+    "scm.push": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmPushParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.push", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const result = await runGit(repoRoot, ["push"]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git push failed"),
+        );
+        return;
+      }
+      respond(true, {}, undefined);
+    },
+    "scm.log": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmLogParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.log", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const limit = params.limit ?? 20;
+      const result = await runGit(repoRoot, [
+        "log",
+        "--format=%H%x00%an%x00%aI%x00%s",
+        `-n ${limit}`,
+      ]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git log failed"),
+        );
+        return;
+      }
+      respond(true, { commits: parseLog(result.stdout) }, undefined);
+    },
+    "scm.conflicts": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmConflictsParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.conflicts", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const result = await runGit(repoRoot, ["diff", "--name-only", "--diff-filter=U"]);
+      if (result.termination !== "exit" || result.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, result.stderr || "git diff failed"),
+        );
+        return;
+      }
+      respond(true, { paths: parseConflicts(result.stdout) }, undefined);
+    },
+    "scm.resolve": async (opts) => {
+      const { params, respond } = opts;
+      if (!validateScmResolveParams(params)) {
+        invalidParams(respond);
+        return;
+      }
+      const repoRoot = await resolveAuthorizedRepoRoot("scm.resolve", params.repoRoot, opts);
+      if (!repoRoot) {
+        return;
+      }
+      const flag = params.resolution === "theirs" ? "--theirs" : "--ours";
+      const checkout = await runGit(repoRoot, ["checkout", flag, "--", params.path]);
+      if (checkout.termination !== "exit" || checkout.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, checkout.stderr || "git checkout failed"),
+        );
+        return;
+      }
+      const add = await runGit(repoRoot, ["add", "--", params.path]);
+      if (add.termination !== "exit" || add.code !== 0) {
+        respond(
+          false,
+          undefined,
+          errorShape(ErrorCodes.INVALID_REQUEST, add.stderr || "git add failed"),
+        );
+        return;
+      }
+      respond(true, {}, undefined);
     },
   };
 }
