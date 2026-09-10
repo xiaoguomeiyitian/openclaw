@@ -12,16 +12,17 @@ type PanelContext = {
 
 function panel(
   slot: SidebarSlotId,
-  combo: (typeof combos)[keyof typeof combos],
+  combo?: (typeof combos)[keyof typeof combos],
   available: (context: PanelContext) => boolean = () => true,
 ) {
-  return { slot, combo, available };
+  return { slot, combo: combo ?? null, available };
 }
 
 export const SIDEBAR_PANEL_SHORTCUTS = {
   terminal: panel("terminal", combos.terminalPanel, (c) => c.state?.terminalAvailable === true),
   browser: panel("browser", combos.browserPanel, (c) => c.state?.browserPanelAvailable === true),
   workspace: panel("workspace", combos.workspaceFiles),
+  scm: panel("scm"),
   companion: panel("companion", combos.sideChat),
   tasks: panel("tasks", combos.tasksPanel),
   desktop: panel("desktop", combos.desktopPanel, (c) => c.desktopAvailable === true),

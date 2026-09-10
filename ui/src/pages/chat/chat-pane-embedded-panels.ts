@@ -111,12 +111,14 @@ export function sidebarPanelDefinitions(
         ? "chat"
         : textKey === "dashboard"
           ? "board"
-          : textKey,
+          : textKey === "scm"
+            ? "review"
+            : textKey,
       t("common.loading"),
     ),
     empty: { description: t(`chat.sidePanel.${textKey}Empty`) },
     headerAction,
-    shortcut: SIDEBAR_PANEL_SHORTCUTS[slot]
+    shortcut: SIDEBAR_PANEL_SHORTCUTS[slot]?.combo
       ? formatKeyboardShortcutCombo(SIDEBAR_PANEL_SHORTCUTS[slot].combo)
       : undefined,
   });
@@ -282,6 +284,7 @@ export function sidebarPanelDefinitions(
       panelExternalLink(params?.discussionOpenUrl, t("chat.sessionDiscussion.openExternal")),
     ),
     definePanel("dashboard", "dashboard", icons.layoutDashboard, params?.dashboard ?? null),
+    definePanel("scm", "scm", icons.diff, html`<openclaw-scm-page></openclaw-scm-page>`),
     ...[...pluginPanels].map(([slot, entry]): SidebarPanelDefinition => ({
       slot,
       label: entry?.value.label ?? slot.slice("plugin:".length),

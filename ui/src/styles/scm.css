@@ -3,6 +3,20 @@
  * consuming shared design tokens (--space-*, --muted, --ok, --danger, --info).
  */
 
+/* Embedded (chat side panel): stack changes tree above the diff/commit box
+ * so the fixed 320px column does not crowd a ~480px side panel. */
+.scm-page--embedded {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.scm-page--embedded .scm-page__layout {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: auto;
+}
+
 .scm-page__layout {
   display: grid;
   grid-template-columns: minmax(0, 320px) minmax(0, 1fr);

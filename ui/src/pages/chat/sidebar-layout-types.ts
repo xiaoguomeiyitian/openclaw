@@ -6,6 +6,7 @@ export type SidebarSlotId =
   | "desktop"
   | "detail"
   | "discussion"
+  | "scm"
   | "tasks"
   | "terminal"
   | "workspace"

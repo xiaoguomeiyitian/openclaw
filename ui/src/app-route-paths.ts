@@ -76,7 +76,6 @@ const APP_ROUTE_DEFINITIONS = {
   "memory-import": { path: "/memory-import", aliases: ["/settings/memory-import"] },
   workboard: { path: "/workboard" },
   worktrees: { path: "/worktrees", aliases: ["/settings/worktrees"] },
-  "source-control": { path: "/source-control" },
   sessions: { path: "/sessions", aliases: ["/settings/sessions"] },
   usage: { path: "/usage" },
   debug: { path: "/debug" },

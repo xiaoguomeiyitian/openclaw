@@ -61,7 +61,6 @@ import { page as secretsPage } from "./pages/secrets/route.ts";
 import { page as sessionsPage } from "./pages/sessions/route.ts";
 import { page as skillWorkshopPage } from "./pages/skill-workshop/route.ts";
 import { page as skillsPage } from "./pages/skills/route.ts";
-import { page as sourceControlPage } from "./pages/source-control/route.ts";
 import { page as tasksPage } from "./pages/tasks/route.ts";
 import { page as usagePage } from "./pages/usage/route.ts";
 import { resolveWorkboardRouteLocation } from "./pages/workboard/route-location.ts";
@@ -110,7 +109,6 @@ const APP_ROUTE_TREE = [
   workboardPage,
   worktreesPage,
   sessionsPage,
-  sourceControlPage,
   secretsPage,
   usagePage,
   debugPage,

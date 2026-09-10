@@ -25,6 +25,7 @@ function normalizeSlotId(value: unknown): SidebarSlotId | null {
     value === "companion" ||
     value === "conversation" ||
     value === "dashboard" ||
+    value === "scm" ||
     value === "desktop" ||
     value === "detail" ||
     value === "discussion" ||

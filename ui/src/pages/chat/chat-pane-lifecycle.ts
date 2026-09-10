@@ -235,7 +235,7 @@ export abstract class ChatPaneLifecycle extends ChatPaneSessionCreation {
       return;
     }
     const shortcut = Object.values(SIDEBAR_PANEL_SHORTCUTS).find(
-      (entry) => entry && matchesShortcutCombo(entry.combo, event),
+      (entry) => entry && entry.combo && matchesShortcutCombo(entry.combo, event),
     );
     const discussionState = this.sessionDiscussionStates.get(state.sessionKey.trim());
     if (

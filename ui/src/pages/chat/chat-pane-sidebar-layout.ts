@@ -56,6 +56,7 @@ const LAZY_SIDEBAR_ELEMENTS: Partial<Record<LazyElementKey, LazyElement>> = {
     "openclaw-session-discussion",
     () => import("./components/session-discussion-panel.ts"),
   ],
+  scm: ["openclaw-scm-page", () => import("../source-control/scm-page.ts")],
 };
 
 const lazyRuntimes = new Map<LazyElementKey, LazyPanelRuntime>();

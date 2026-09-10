@@ -15,9 +15,7 @@ import type {
 } from "../../../../packages/gateway-protocol/src/index.js";
 import type { GatewayBrowserClient } from "../../api/gateway.ts";
 import "../../styles/scm.css";
-import { subtitleForRoute, titleForRoute } from "../../app-navigation.ts";
 import { applicationContext, type ApplicationContext } from "../../app/context.ts";
-import { renderSettingsWorkspace } from "../../components/settings-workspace.ts";
 import { t } from "../../i18n/index.ts";
 import { formatUiError } from "../../lib/format-error.ts";
 import { GatewayPageController } from "../../lit/gateway-page-controller.ts";
@@ -51,7 +49,7 @@ const SCM_TABS: Array<{ key: ScmTabKey; labelKey: string }> = [
  * branches, history, conflicts, and coordinates the diff preview, stage/unstage,
  * commit, checkout, sync, and conflict-resolution subviews.
  */
-class ScmPage extends OpenClawLightDomElement {
+export class ScmPage extends OpenClawLightDomElement {
   @consume({ context: applicationContext, subscribe: true })
   private context!: ApplicationContext;
 
@@ -519,9 +517,9 @@ class ScmPage extends OpenClawLightDomElement {
   }
 
   override render() {
-    const body = html`
+    return html`
       <div
-        class="scm-page"
+        class="scm-page scm-page--embedded"
         @scm-action=${(e: Event) => this.onScmAction(e)}
         @scm-select=${(e: Event) => this.onScmSelect(e)}
         @scm-commit=${(e: Event) => this.onScmCommit(e)}
@@ -534,15 +532,6 @@ class ScmPage extends OpenClawLightDomElement {
         ${this.renderHeader()} ${this.renderTabs()}
         <div class="scm-page__content">${this.renderSecondaryTab()}</div>
       </div>
-    `;
-    return html`
-      <section class="content-header">
-        <div>
-          <div class="page-title">${titleForRoute("source-control")}</div>
-          <div class="page-subtitle">${subtitleForRoute("source-control")}</div>
-        </div>
-      </section>
-      ${renderSettingsWorkspace(body, { fillHeight: true })}
     `;
   }
 }
